@@ -48,6 +48,7 @@ const navItems = [
 ];
 
 const statusColors: Record<OrderStatus, string> = {
+  scheduled: 'bg-violet-100 text-violet-800 border-violet-200',
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
   processing: 'bg-purple-100 text-purple-800 border-purple-200',
@@ -61,6 +62,7 @@ const statusColors: Record<OrderStatus, string> = {
 
 const filterTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
+  { label: 'Scheduled', value: 'scheduled' },
   { label: 'Pending', value: 'pending' },
   { label: 'Confirmed', value: 'confirmed' },
   { label: 'Processing', value: 'processing' },

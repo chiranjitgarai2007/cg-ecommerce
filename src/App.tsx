@@ -16,6 +16,7 @@ import Checkout from "./pages/customer/Checkout";
 import OrderSuccess from "./pages/customer/OrderSuccess";
 import MyOrders from "./pages/customer/MyOrders";
 import TrackOrder from "./pages/customer/TrackOrder";
+import ScheduledOrders from "./pages/customer/ScheduledOrders";
 import MyBilling from "./pages/customer/MyBilling";
 import FoodMenu from "./pages/customer/FoodMenu";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/my-orders" element={<MyOrders />} />
             <Route path="/track-order/:orderId" element={<TrackOrder />} />
             <Route path="/food-menu" element={<FoodMenu />} />
+            <Route path="/scheduled-orders" element={<ScheduledOrders />} />
             <Route path="/my-billing" element={<MyBilling />} />
             <Route path="/profile" element={<ProfileSettings />} />
             <Route path="/seller/orders" element={<SellerOrders />} />

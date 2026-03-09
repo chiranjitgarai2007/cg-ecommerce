@@ -399,8 +399,10 @@ export type Database = {
           longitude: number | null
           payment_method: string
           payment_status: string
+          recurring_schedule_id: string | null
           scheduled_date: string | null
           scheduled_slot: string | null
+          scheduled_time: string | null
           seller_delivers: boolean | null
           shipping_address: string
           status: Database["public"]["Enums"]["order_status"]
@@ -421,8 +423,10 @@ export type Database = {
           longitude?: number | null
           payment_method?: string
           payment_status?: string
+          recurring_schedule_id?: string | null
           scheduled_date?: string | null
           scheduled_slot?: string | null
+          scheduled_time?: string | null
           seller_delivers?: boolean | null
           shipping_address: string
           status?: Database["public"]["Enums"]["order_status"]
@@ -443,8 +447,10 @@ export type Database = {
           longitude?: number | null
           payment_method?: string
           payment_status?: string
+          recurring_schedule_id?: string | null
           scheduled_date?: string | null
           scheduled_slot?: string | null
+          scheduled_time?: string | null
           seller_delivers?: boolean | null
           shipping_address?: string
           status?: Database["public"]["Enums"]["order_status"]
@@ -457,6 +463,13 @@ export type Database = {
             columns: ["billing_cycle_id"]
             isOneToOne: false
             referencedRelation: "billing_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_recurring_schedule_id_fkey"
+            columns: ["recurring_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_schedules"
             referencedColumns: ["id"]
           },
         ]
@@ -615,6 +628,51 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_schedules: {
+        Row: {
+          created_at: string
+          custom_days: Json | null
+          customer_id: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          last_generated_date: string | null
+          order_data: Json
+          pattern: string
+          scheduled_time: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_days?: Json | null
+          customer_id: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          order_data: Json
+          pattern?: string
+          scheduled_time?: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_days?: Json | null
+          customer_id?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          order_data?: Json
+          pattern?: string
+          scheduled_time?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -669,6 +727,7 @@ export type Database = {
         | "on_the_way"
         | "delivered"
       order_status:
+        | "scheduled"
         | "pending"
         | "confirmed"
         | "processing"
@@ -816,6 +875,7 @@ export const Constants = {
         "delivered",
       ],
       order_status: [
+        "scheduled",
         "pending",
         "confirmed",
         "processing",

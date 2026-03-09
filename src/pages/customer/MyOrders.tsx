@@ -10,6 +10,7 @@ import type { Database } from '@/integrations/supabase/types';
 type OrderStatus = Database['public']['Enums']['order_status'];
 
 const STATUS_COLORS: Record<string, string> = {
+  scheduled: 'bg-violet-100 text-violet-800',
   pending: 'bg-warning/10 text-warning',
   confirmed: 'bg-primary/10 text-primary',
   processing: 'bg-primary/10 text-primary',

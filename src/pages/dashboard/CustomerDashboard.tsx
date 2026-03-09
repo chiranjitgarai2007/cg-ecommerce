@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/DashboardLayout';
-import { ShoppingBag, Search, ShoppingCart, Clock, User, Package, UtensilsCrossed, Receipt } from 'lucide-react';
+import { ShoppingBag, Search, ShoppingCart, Clock, User, Package, UtensilsCrossed, Receipt, CalendarClock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ const navItems = [
   { label: 'Food Menu', path: '/food-menu', icon: <UtensilsCrossed className="w-4 h-4" /> },
   { label: 'My Cart', path: '/cart', icon: <ShoppingCart className="w-4 h-4" /> },
   { label: 'My Orders', path: '/my-orders', icon: <Clock className="w-4 h-4" /> },
+  { label: 'Scheduled Orders', path: '/scheduled-orders', icon: <CalendarClock className="w-4 h-4" /> },
   { label: '15-Day Bill', path: '/my-billing', icon: <Receipt className="w-4 h-4" /> },
   { label: 'Profile', path: '/profile', icon: <User className="w-4 h-4" /> },
 ];
