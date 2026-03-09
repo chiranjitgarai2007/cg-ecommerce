@@ -16,6 +16,7 @@ import Checkout from "./pages/customer/Checkout";
 import OrderSuccess from "./pages/customer/OrderSuccess";
 import MyOrders from "./pages/customer/MyOrders";
 import TrackOrder from "./pages/customer/TrackOrder";
+import ScheduledOrders from "./pages/customer/ScheduledOrders";
 import MyBilling from "./pages/customer/MyBilling";
 import FoodMenu from "./pages/customer/FoodMenu";
 import ProfileSettings from "./pages/ProfileSettings";

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/DashboardLayout';
-import { ShoppingBag, Search, ShoppingCart, Clock, User, Package, UtensilsCrossed, Receipt } from 'lucide-react';
+import { ShoppingBag, Search, ShoppingCart, Clock, User, Package, UtensilsCrossed, Receipt, CalendarClock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
