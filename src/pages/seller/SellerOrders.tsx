@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -79,6 +80,7 @@ export default function SellerOrders() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   // Track per-order delivery boy toggle (used when accepting pending orders)
   const [needsDeliveryBoy, setNeedsDeliveryBoy] = useState<Record<string, boolean>>({});
+  const [prepTime, setPrepTime] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) fetchOrders();
@@ -171,12 +173,15 @@ export default function SellerOrders() {
 
   const startProcessing = async (orderId: string) => {
     setUpdatingId(orderId);
-    const { error } = await supabase.from('orders').update({ status: 'processing' as OrderStatus }).eq('id', orderId);
+    const estPrepTime = prepTime[orderId] ? parseInt(prepTime[orderId]) : null;
+    const updateData: Record<string, unknown> = { status: 'processing' as OrderStatus };
+    if (estPrepTime && estPrepTime > 0) updateData.estimated_preparation_time = estPrepTime;
+
+    const { error } = await supabase.from('orders').update(updateData).eq('id', orderId);
 
     if (error) {
       toast.error(error.message);
     } else {
-      // Check if this order needs a delivery boy — if so, notify them now (at packaging stage)
       const order = orders.find(o => o.id === orderId);
       if (order && order.delivery_type === 'delivery_boy') {
         await notifyDeliveryBoys(order);
@@ -239,7 +244,7 @@ export default function SellerOrders() {
         );
         break;
       case 'confirmed':
-        actions.push({ label: 'Start Preparing', handler: () => startProcessing(order.id), variant: 'default', icon: <Loader2 className="w-4 h-4" /> });
+        actions.push({ label: 'Start Preparing', handler: () => startProcessing(order.id), variant: 'default', icon: <Loader2 className="w-4 h-4" />, showPrepTime: true });
         break;
       case 'processing':
         if (order.delivery_type === 'seller' || order.seller_delivers) {
