@@ -378,6 +378,28 @@ export default function SellerOrders() {
                     </div>
                   )}
 
+                  {/* Prep time input for confirmed orders */}
+                  {order.status === 'confirmed' && (
+                    <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3 border border-border">
+                      <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1">
+                        <Label htmlFor={`prep-${order.id}`} className="text-sm font-medium text-foreground">
+                          Est. Preparation Time (minutes)
+                        </Label>
+                      </div>
+                      <Input
+                        id={`prep-${order.id}`}
+                        type="number"
+                        min="1"
+                        max="180"
+                        placeholder="30"
+                        className="w-20 h-8 text-sm"
+                        value={prepTime[order.id] || ''}
+                        onChange={(e) => setPrepTime(prev => ({ ...prev, [order.id]: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
                   {/* Footer */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border">
                     <div className="text-sm">
