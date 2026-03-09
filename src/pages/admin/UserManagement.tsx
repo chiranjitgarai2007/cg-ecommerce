@@ -69,12 +69,12 @@ export default function UserManagement() {
 
   const logAction = async (action: string, targetUserId: string, changes?: Record<string, unknown>) => {
     if (!user) return;
-    await supabase.from('admin_audit_logs').insert({
+    await supabase.from('admin_audit_logs').insert([{
       admin_id: user.id,
       action,
       target_user_id: targetUserId,
       changes: changes || null,
-    });
+    }]);
   };
 
   const toggleBlock = async (u: UserWithRoles) => {
