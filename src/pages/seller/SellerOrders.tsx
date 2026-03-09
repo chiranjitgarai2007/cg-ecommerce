@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -79,6 +80,7 @@ export default function SellerOrders() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   // Track per-order delivery boy toggle (used when accepting pending orders)
   const [needsDeliveryBoy, setNeedsDeliveryBoy] = useState<Record<string, boolean>>({});
+  const [prepTime, setPrepTime] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) fetchOrders();
@@ -171,12 +173,15 @@ export default function SellerOrders() {
 
   const startProcessing = async (orderId: string) => {
     setUpdatingId(orderId);
-    const { error } = await supabase.from('orders').update({ status: 'processing' as OrderStatus }).eq('id', orderId);
+    const estPrepTime = prepTime[orderId] ? parseInt(prepTime[orderId]) : null;
+    const updateData: Record<string, unknown> = { status: 'processing' as OrderStatus };
+    if (estPrepTime && estPrepTime > 0) updateData.estimated_preparation_time = estPrepTime;
+
+    const { error } = await supabase.from('orders').update(updateData).eq('id', orderId);
 
     if (error) {
       toast.error(error.message);
     } else {
-      // Check if this order needs a delivery boy — if so, notify them now (at packaging stage)
       const order = orders.find(o => o.id === orderId);
       if (order && order.delivery_type === 'delivery_boy') {
         await notifyDeliveryBoys(order);
@@ -230,7 +235,7 @@ export default function SellerOrders() {
   const filteredOrders = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   const getActions = (order: OrderWithItems) => {
-    const actions: { label: string; handler: () => void; variant: 'default' | 'destructive' | 'outline'; icon: React.ReactNode }[] = [];
+    const actions: { label: string; handler: () => void; variant: 'default' | 'destructive' | 'outline'; icon: React.ReactNode; showPrepTime?: boolean }[] = [];
     switch (order.status) {
       case 'pending':
         actions.push(
@@ -239,7 +244,7 @@ export default function SellerOrders() {
         );
         break;
       case 'confirmed':
-        actions.push({ label: 'Start Preparing', handler: () => startProcessing(order.id), variant: 'default', icon: <Loader2 className="w-4 h-4" /> });
+        actions.push({ label: 'Start Preparing', handler: () => startProcessing(order.id), variant: 'default', icon: <Loader2 className="w-4 h-4" />, showPrepTime: true });
         break;
       case 'processing':
         if (order.delivery_type === 'seller' || order.seller_delivers) {
@@ -369,6 +374,28 @@ export default function SellerOrders() {
                         onCheckedChange={(checked) =>
                           setNeedsDeliveryBoy(prev => ({ ...prev, [order.id]: checked }))
                         }
+                      />
+                    </div>
+                  )}
+
+                  {/* Prep time input for confirmed orders */}
+                  {order.status === 'confirmed' && (
+                    <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3 border border-border">
+                      <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1">
+                        <Label htmlFor={`prep-${order.id}`} className="text-sm font-medium text-foreground">
+                          Est. Preparation Time (minutes)
+                        </Label>
+                      </div>
+                      <Input
+                        id={`prep-${order.id}`}
+                        type="number"
+                        min="1"
+                        max="180"
+                        placeholder="30"
+                        className="w-20 h-8 text-sm"
+                        value={prepTime[order.id] || ''}
+                        onChange={(e) => setPrepTime(prev => ({ ...prev, [order.id]: e.target.value }))}
                       />
                     </div>
                   )}

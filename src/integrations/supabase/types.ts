@@ -384,6 +384,41 @@ export type Database = {
           },
         ]
       }
+      order_status_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          order_id: string
+          status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id: string
+          status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_log_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           billing_cycle_id: string | null
@@ -392,6 +427,7 @@ export type Database = {
           customer_id: string
           delivery_type: string
           estimated_delivery_date: string | null
+          estimated_preparation_time: number | null
           food_preferences: string | null
           id: string
           landmark: string | null
@@ -416,6 +452,7 @@ export type Database = {
           customer_id: string
           delivery_type?: string
           estimated_delivery_date?: string | null
+          estimated_preparation_time?: number | null
           food_preferences?: string | null
           id?: string
           landmark?: string | null
@@ -440,6 +477,7 @@ export type Database = {
           customer_id?: string
           delivery_type?: string
           estimated_delivery_date?: string | null
+          estimated_preparation_time?: number | null
           food_preferences?: string | null
           id?: string
           landmark?: string | null
