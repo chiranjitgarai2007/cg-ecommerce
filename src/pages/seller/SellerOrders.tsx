@@ -62,6 +62,7 @@ const statusColors: Record<OrderStatus, string> = {
 
 const filterTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
+  { label: 'Scheduled', value: 'scheduled' },
   { label: 'Pending', value: 'pending' },
   { label: 'Confirmed', value: 'confirmed' },
   { label: 'Processing', value: 'processing' },
