@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, MapPin, Package, CheckCircle, Truck, Clock } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Package, CheckCircle, Truck, Clock, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 const TRACKING_STEPS = [
   { key: 'pending', label: 'Order Placed', icon: Package },
   { key: 'confirmed', label: 'Confirmed', icon: CheckCircle },
-  { key: 'processing', label: 'Packed', icon: Package },
-  { key: 'shipped', label: 'Shipped', icon: Truck },
+  { key: 'processing', label: 'Preparing', icon: Package },
+  { key: 'shipped', label: 'Ready / Shipped', icon: Truck },
   { key: 'picked_up', label: 'Picked Up', icon: Truck },
   { key: 'on_the_way', label: 'On The Way', icon: Truck },
   { key: 'delivered', label: 'Delivered', icon: CheckCircle },
 ];
+
+interface StatusLog {
+  id: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
 
 export default function TrackOrder() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -20,16 +28,19 @@ export default function TrackOrder() {
   const [order, setOrder] = useState<any>(null);
   const [delivery, setDelivery] = useState<any>(null);
   const [deliveryBoy, setDeliveryBoy] = useState<any>(null);
+  const [statusLogs, setStatusLogs] = useState<StatusLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (orderId) fetchData(orderId);
 
-    // Realtime updates
     const channel = supabase
       .channel(`track-${orderId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
         setOrder((prev: any) => prev ? { ...prev, ...payload.new } : payload.new);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_status_log', filter: `order_id=eq.${orderId}` }, (payload) => {
+        setStatusLogs(prev => [...prev, payload.new as StatusLog]);
       })
       .subscribe();
 
@@ -37,17 +48,26 @@ export default function TrackOrder() {
   }, [orderId]);
 
   const fetchData = async (id: string) => {
-    const { data: orderData } = await supabase.from('orders').select('*').eq('id', id).single();
-    setOrder(orderData);
+    const [orderRes, deliveryRes, logsRes] = await Promise.all([
+      supabase.from('orders').select('*').eq('id', id).single(),
+      supabase.from('deliveries').select('*').eq('order_id', id).maybeSingle(),
+      supabase.from('order_status_log').select('*').eq('order_id', id).order('created_at', { ascending: true }),
+    ]);
 
-    const { data: deliveryData } = await supabase.from('deliveries').select('*').eq('order_id', id).maybeSingle();
-    setDelivery(deliveryData);
+    setOrder(orderRes.data);
+    setDelivery(deliveryRes.data);
+    setStatusLogs((logsRes.data || []) as StatusLog[]);
 
-    if (deliveryData?.delivery_boy_id) {
-      const { data: boyData } = await supabase.from('profiles').select('full_name, phone').eq('user_id', deliveryData.delivery_boy_id).single();
+    if (deliveryRes.data?.delivery_boy_id) {
+      const { data: boyData } = await supabase.from('profiles').select('full_name, phone').eq('user_id', deliveryRes.data.delivery_boy_id).single();
       setDeliveryBoy(boyData);
     }
     setLoading(false);
+  };
+
+  const handleReorder = () => {
+    // Navigate to cart — items would need to be re-added
+    navigate('/');
   };
 
   if (loading) {
@@ -70,12 +90,26 @@ export default function TrackOrder() {
 
   const currentIdx = TRACKING_STEPS.findIndex(s => s.key === order.status);
   const isCancelled = order.status === 'cancelled';
+  const isDelivered = order.status === 'delivered';
+  const progressPercent = isCancelled ? 0 : isDelivered ? 100 : Math.max(5, ((currentIdx + 1) / TRACKING_STEPS.length) * 100);
 
-  // Countdown timer for estimated delivery
+  // Build a map of status → timestamp from logs
+  const statusTimestamps: Record<string, string> = {};
+  statusLogs.forEach(log => {
+    if (!statusTimestamps[log.status]) {
+      statusTimestamps[log.status] = log.created_at;
+    }
+  });
+
   const estimatedDate = order.estimated_delivery_date ? new Date(order.estimated_delivery_date) : null;
   const now = new Date();
   const diffMs = estimatedDate ? estimatedDate.getTime() - now.getTime() : 0;
   const daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,6 +122,17 @@ export default function TrackOrder() {
       </header>
 
       <div className="max-w-lg mx-auto p-4 lg:p-6 space-y-6">
+        {/* Progress Bar */}
+        {!isCancelled && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Order Placed</span>
+              <span>{isDelivered ? 'Delivered ✓' : TRACKING_STEPS[currentIdx]?.label || 'Processing'}</span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        )}
+
         {/* Status Card */}
         <div className="bg-card border border-border rounded-lg p-5">
           {isCancelled ? (
@@ -100,13 +145,23 @@ export default function TrackOrder() {
           ) : (
             <>
               <div className="text-center mb-6">
-                <p className="text-sm text-muted-foreground">Estimated Delivery</p>
-                {estimatedDate && (
-                  <p className="text-lg font-heading font-bold text-foreground">
-                    {estimatedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
+                {order.estimated_preparation_time && !isDelivered && (
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-primary font-medium">
+                      Est. prep time: {order.estimated_preparation_time} min
+                    </span>
+                  </div>
                 )}
-                {daysLeft > 0 && order.status !== 'delivered' && (
+                {estimatedDate && (
+                  <>
+                    <p className="text-sm text-muted-foreground">Estimated Delivery</p>
+                    <p className="text-lg font-heading font-bold text-foreground">
+                      {estimatedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  </>
+                )}
+                {daysLeft > 0 && !isDelivered && (
                   <div className="flex items-center justify-center gap-1 mt-1">
                     <Clock className="w-4 h-4 text-primary" />
                     <span className="text-sm text-primary font-medium">{daysLeft} day{daysLeft > 1 ? 's' : ''} remaining</span>
@@ -114,16 +169,17 @@ export default function TrackOrder() {
                 )}
               </div>
 
-              {/* Timeline */}
+              {/* Timeline with timestamps */}
               <div className="space-y-0">
                 {TRACKING_STEPS.map((step, idx) => {
                   const isCompleted = idx <= currentIdx;
                   const isCurrent = idx === currentIdx;
                   const Icon = step.icon;
+                  const timestamp = statusTimestamps[step.key];
                   return (
                     <div key={step.key} className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
                           isCompleted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                         } ${isCurrent ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : ''}`}>
                           <Icon className="w-4 h-4" />
@@ -136,7 +192,10 @@ export default function TrackOrder() {
                         <p className={`text-sm font-medium ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {step.label}
                         </p>
-                        {isCurrent && (
+                        {timestamp && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatTime(timestamp)}</p>
+                        )}
+                        {isCurrent && !timestamp && (
                           <p className="text-xs text-primary mt-0.5">Current status</p>
                         )}
                       </div>
@@ -196,6 +255,13 @@ export default function TrackOrder() {
             <span className="text-foreground capitalize">{order.delivery_type}</span>
           </div>
         </div>
+
+        {/* Reorder Button */}
+        {isDelivered && (
+          <Button className="w-full" variant="outline" onClick={handleReorder}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Reorder
+          </Button>
+        )}
       </div>
     </div>
   );
