@@ -73,7 +73,7 @@ export default function UserManagement() {
       admin_id: user.id,
       action,
       target_user_id: targetUserId,
-      changes: changes || null,
+      changes: (changes as any) || null,
     }]);
   };
 
