@@ -235,7 +235,7 @@ export default function SellerOrders() {
   const filteredOrders = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   const getActions = (order: OrderWithItems) => {
-    const actions: { label: string; handler: () => void; variant: 'default' | 'destructive' | 'outline'; icon: React.ReactNode }[] = [];
+    const actions: { label: string; handler: () => void; variant: 'default' | 'destructive' | 'outline'; icon: React.ReactNode; showPrepTime?: boolean }[] = [];
     switch (order.status) {
       case 'pending':
         actions.push(
