@@ -47,6 +47,7 @@ const App = () => (
             <Route path="/my-orders" element={<MyOrders />} />
             <Route path="/track-order/:orderId" element={<TrackOrder />} />
             <Route path="/food-menu" element={<FoodMenu />} />
+            <Route path="/scheduled-orders" element={<ScheduledOrders />} />
             <Route path="/my-billing" element={<MyBilling />} />
             <Route path="/profile" element={<ProfileSettings />} />
             <Route path="/seller/orders" element={<SellerOrders />} />
