@@ -21,6 +21,7 @@ import MyBilling from "./pages/customer/MyBilling";
 import FoodMenu from "./pages/customer/FoodMenu";
 import ProfileSettings from "./pages/ProfileSettings";
 import SellerOrders from "./pages/seller/SellerOrders";
+import SellerOrderDetail from "./pages/seller/SellerOrderDetail";
 import SellerAnalytics from "./pages/seller/SellerAnalytics";
 import SellerFoodMenu from "./pages/seller/SellerFoodMenu";
 import SellerBilling from "./pages/seller/SellerBilling";
