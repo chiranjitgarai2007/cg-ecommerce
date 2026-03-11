@@ -54,6 +54,7 @@ const App = () => (
             <Route path="/my-billing" element={<MyBilling />} />
             <Route path="/profile" element={<ProfileSettings />} />
             <Route path="/seller/orders" element={<SellerOrders />} />
+            <Route path="/seller/orders/:orderId" element={<SellerOrderDetail />} />
             <Route path="/seller/analytics" element={<SellerAnalytics />} />
             <Route path="/seller/food-menu" element={<SellerFoodMenu />} />
             <Route path="/seller/billing" element={<SellerBilling />} />
