@@ -175,9 +175,12 @@ export type Database = {
       deliveries: {
         Row: {
           created_at: string
+          current_latitude: number | null
+          current_longitude: number | null
           delivered_at: string | null
           delivery_boy_id: string | null
           id: string
+          location_updated_at: string | null
           order_id: string
           picked_up_at: string | null
           status: Database["public"]["Enums"]["delivery_status"]
@@ -185,9 +188,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_latitude?: number | null
+          current_longitude?: number | null
           delivered_at?: string | null
           delivery_boy_id?: string | null
           id?: string
+          location_updated_at?: string | null
           order_id: string
           picked_up_at?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
@@ -195,9 +201,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_latitude?: number | null
+          current_longitude?: number | null
           delivered_at?: string | null
           delivery_boy_id?: string | null
           id?: string
+          location_updated_at?: string | null
           order_id?: string
           picked_up_at?: string | null
           status?: Database["public"]["Enums"]["delivery_status"]
