@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
+import AdminDeliveryManagement from '@/components/admin/AdminDeliveryManagement';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Product = Database['public']['Tables']['products']['Row'];
@@ -79,6 +80,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-4">
@@ -142,6 +144,10 @@ export default function AdminDashboard() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="deliveries" className="mt-4">
+            <AdminDeliveryManagement />
           </TabsContent>
         </Tabs>
       </div>
