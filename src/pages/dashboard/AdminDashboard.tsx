@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
+import AdminDeliveryManagement from '@/components/admin/AdminDeliveryManagement';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Product = Database['public']['Tables']['products']['Row'];
