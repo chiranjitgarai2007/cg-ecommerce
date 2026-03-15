@@ -145,6 +145,10 @@ export default function AdminDashboard() {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="deliveries" className="mt-4">
+            <AdminDeliveryManagement />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
