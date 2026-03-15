@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Truck, Clock, CheckCircle, User, DollarSign, Package, MapPin, Phone, XCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Truck, User, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
-
-type Delivery = Database['public']['Tables']['deliveries']['Row'];
-type DeliveryStatus = Database['public']['Enums']['delivery_status'];
+import { EnrichedDelivery, DeliveryStatus } from '@/types/delivery';
+import DeliveryStatsCards from '@/components/delivery/DeliveryStatsCards';
+import DeliveryCard from '@/components/delivery/DeliveryCard';
+import GpsLocationTracker from '@/components/delivery/GpsLocationTracker';
 
 const navItems = [
   { label: 'Active Deliveries', path: '/', icon: <Truck className="w-4 h-4" /> },
@@ -23,25 +23,6 @@ const statusFlow: Record<string, DeliveryStatus> = {
   on_the_way: 'delivered',
 };
 
-const statusLabels: Record<string, string> = {
-  assigned: 'Accept Delivery',
-  accepted: 'Mark Picked Up',
-  picked_up: 'Start Delivery',
-  on_the_way: 'Mark Delivered',
-};
-
-interface EnrichedDelivery extends Delivery {
-  order?: {
-    shipping_address: string;
-    contact_number: string | null;
-    landmark: string | null;
-    total_amount: number;
-    customer_name?: string;
-  };
-  seller_address?: string;
-  products?: { name: string; quantity: number }[];
-}
-
 export default function DeliveryDashboard() {
   const { user } = useAuth();
   const [deliveries, setDeliveries] = useState<EnrichedDelivery[]>([]);
@@ -49,7 +30,6 @@ export default function DeliveryDashboard() {
 
   useEffect(() => { if (user) fetchDeliveries(); }, [user]);
 
-  // Realtime for new deliveries
   useEffect(() => {
     const channel = supabase
       .channel('delivery-updates')
@@ -76,17 +56,14 @@ export default function DeliveryDashboard() {
       supabase.from('order_items').select('order_id, quantity, product_id').in('order_id', orderIds),
     ]);
 
-    // Get customer names
     const customerIds = [...new Set((ordersRes.data || []).map(o => o.customer_id))];
     const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', customerIds);
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
 
-    // Get product names
     const productIds = [...new Set((orderItemsRes.data || []).map(oi => oi.product_id).filter(Boolean))] as string[];
     const { data: products } = await supabase.from('products').select('id, name, seller_id').in('id', productIds);
     const prodMap = new Map((products || []).map(p => [p.id, p]));
 
-    // Get seller addresses
     const sellerIds = [...new Set((products || []).map(p => p.seller_id))];
     const { data: sellerProfiles } = await supabase.from('profiles').select('user_id, business_address, store_name').in('user_id', sellerIds);
     const sellerMap = new Map((sellerProfiles || []).map(s => [s.user_id, s]));
@@ -98,7 +75,6 @@ export default function DeliveryDashboard() {
         const prod = oi.product_id ? prodMap.get(oi.product_id) : null;
         return { name: prod?.name || 'Unknown', quantity: oi.quantity };
       });
-      // Get seller address from first product
       const firstProd = items[0]?.product_id ? prodMap.get(items[0].product_id) : null;
       const seller = firstProd ? sellerMap.get(firstProd.seller_id) : null;
 
@@ -131,7 +107,6 @@ export default function DeliveryDashboard() {
     if (error) toast.error(error.message);
     else {
       toast.success('Status updated!');
-      // Also update the order status
       const delivery = deliveries.find(d => d.id === id);
       if (delivery) {
         const orderStatusMap: Record<string, string> = {
@@ -160,20 +135,9 @@ export default function DeliveryDashboard() {
   return (
     <DashboardLayout title="Delivery Dashboard" navItems={navItems}>
       <div className="space-y-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card border border-border rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">Active</p>
-            <p className="text-2xl font-heading font-bold text-primary">{active.length}</p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">Completed</p>
-            <p className="text-2xl font-heading font-bold text-success">{completed.length}</p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">Total</p>
-            <p className="text-2xl font-heading font-bold text-foreground">{deliveries.length}</p>
-          </div>
-        </div>
+        <DeliveryStatsCards active={active} completed={completed} total={deliveries.length} />
+        
+        <GpsLocationTracker hasActiveDeliveries={active.length > 0} />
 
         <h3 className="text-lg font-heading font-semibold text-foreground">Active Deliveries</h3>
 
@@ -188,73 +152,11 @@ export default function DeliveryDashboard() {
         ) : (
           <div className="space-y-4">
             {active.map(d => (
-              <div key={d.id} className="bg-card border border-border rounded-lg p-5 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-foreground">Order #{d.order_id.slice(0, 8)}</p>
-                    <Badge variant="outline" className="mt-1 capitalize">{d.status.replace('_', ' ')}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleString()}</p>
-                </div>
-
-                {/* Product Details */}
-                {d.products && d.products.length > 0 && (
-                  <div className="bg-muted/50 rounded-md p-3 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Items:</p>
-                    {d.products.map((p, i) => (
-                      <p key={i} className="text-sm text-foreground">{p.name} × {p.quantity}</p>
-                    ))}
-                  </div>
-                )}
-
-                {/* Locations */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pickup</p>
-                      <p className="text-foreground">{d.seller_address}</p>
-                    </div>
-                  </div>
-                  {d.order && (
-                    <>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Delivery to {d.order.customer_name}</p>
-                          <p className="text-foreground">{d.order.shipping_address}</p>
-                          {d.order.landmark && <p className="text-xs text-muted-foreground">Landmark: {d.order.landmark}</p>}
-                        </div>
-                      </div>
-                      {d.order.contact_number && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          <a href={`tel:${d.order.contact_number}`} className="text-primary text-sm">{d.order.contact_number}</a>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  {statusFlow[d.status] && (
-                    <Button size="sm" onClick={() => updateStatus(d.id, d.status)}>
-                      <CheckCircle className="w-3 h-3 mr-1" /> {statusLabels[d.status]}
-                    </Button>
-                  )}
-                  {d.status === 'assigned' && (
-                    <Button size="sm" variant="destructive" onClick={() => rejectDelivery(d.id)}>
-                      <XCircle className="w-3 h-3 mr-1" /> Reject
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <DeliveryCard key={d.id} delivery={d} onUpdateStatus={updateStatus} onReject={rejectDelivery} />
             ))}
           </div>
         )}
 
-        {/* Completed */}
         {completed.length > 0 && (
           <>
             <h3 className="text-lg font-heading font-semibold text-foreground">Completed</h3>
