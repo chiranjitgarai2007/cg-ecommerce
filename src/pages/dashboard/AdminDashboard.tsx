@@ -80,6 +80,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-4">
