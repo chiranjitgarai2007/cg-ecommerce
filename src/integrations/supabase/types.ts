@@ -222,6 +222,57 @@ export type Database = {
           },
         ]
       }
+      delivery_otps: {
+        Row: {
+          created_at: string
+          delivery_id: string
+          expires_at: string
+          id: string
+          is_verified: boolean
+          order_id: string
+          otp_code: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          delivery_id: string
+          expires_at?: string
+          id?: string
+          is_verified?: boolean
+          order_id: string
+          otp_code: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          delivery_id?: string
+          expires_at?: string
+          id?: string
+          is_verified?: boolean
+          order_id?: string
+          otp_code?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_otps_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_otps_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       earnings: {
         Row: {
           amount: number
@@ -773,6 +824,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_delivery_otp: {
+        Args: { _delivery_id: string; _order_id: string }
+        Returns: string
+      }
       get_customer_order_ids: { Args: { _user_id: string }; Returns: string[] }
       get_delivery_boy_order_ids: {
         Args: { _user_id: string }
