@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import TrackingTimeline, { TRACKING_STEPS, type StatusLog } from '@/components/tracking/TrackingTimeline';
 import DeliveryLocationCard from '@/components/tracking/DeliveryLocationCard';
+import OtpDisplay from '@/components/delivery/OtpDisplay';
 
 export default function TrackOrder() {
   const { orderId } = useParams<{ orderId: string }>();

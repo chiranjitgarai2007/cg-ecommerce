@@ -279,40 +279,55 @@ export default function SellerOrderDetail() {
               {order.status === 'cancelled' || order.status === 'delivered' ? (
                 <p className="text-sm text-muted-foreground">This order is {statusLabels[order.status].toLowerCase()}.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {statusFlow.map((status, idx) => {
-                    const isActive = order.status === status;
-                    const isPast = idx < currentStatusIndex;
-                    const isNext = idx === currentStatusIndex + 1;
-                    // For seller-delivered orders, allow all steps. For delivery_boy, skip picked_up/on_the_way/delivered
-                    const isSellerDelivery = order.delivery_type === 'seller' || order.seller_delivers;
-                    const isDeliveryStep = ['picked_up', 'on_the_way', 'delivered'].includes(status);
-                    const canClick = isNext && (!isDeliveryStep || isSellerDelivery || status === 'delivered');
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {statusFlow.map((status, idx) => {
+                      const isActive = order.status === status;
+                      const isPast = idx < currentStatusIndex;
+                      const isNext = idx === currentStatusIndex + 1;
+                      const isSellerDelivery = order.delivery_type === 'seller' || order.seller_delivers;
+                      const isDeliveryStep = ['picked_up', 'on_the_way', 'delivered'].includes(status);
+                      // Block "delivered" button - OTP verification handles it
+                      const needsOtp = status === 'delivered' && order.status === 'on_the_way' && isSellerDelivery;
+                      const canClick = isNext && (!isDeliveryStep || isSellerDelivery) && !needsOtp;
 
-                    return (
-                      <Button
-                        key={status}
-                        variant={isActive ? 'default' : isPast ? 'secondary' : 'outline'}
-                        size="sm"
-                        disabled={!canClick || !!updatingStatus}
-                        onClick={() => canClick && updateStatus(status)}
-                        className={`${isActive ? '' : isPast ? 'opacity-60' : ''}`}
-                      >
-                        {updatingStatus === status ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                        {isPast && <CheckCircle className="w-3 h-3 mr-1" />}
-                        {statusLabels[status]}
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={!!updatingStatus}
-                    onClick={() => updateStatus('cancelled')}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" />
-                    Cancel Order
-                  </Button>
+                      return (
+                        <Button
+                          key={status}
+                          variant={isActive ? 'default' : isPast ? 'secondary' : 'outline'}
+                          size="sm"
+                          disabled={!canClick || !!updatingStatus}
+                          onClick={() => canClick && updateStatus(status)}
+                          className={`${isActive ? '' : isPast ? 'opacity-60' : ''}`}
+                        >
+                          {updatingStatus === status ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                          {isPast && <CheckCircle className="w-3 h-3 mr-1" />}
+                          {statusLabels[status]}
+                        </Button>
+                      );
+                    })}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={!!updatingStatus}
+                      onClick={() => updateStatus('cancelled')}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Cancel Order
+                    </Button>
+                  </div>
+
+                  {/* OTP Verification for seller self-delivery */}
+                  {order.status === 'on_the_way' && (order.seller_delivers || order.delivery_type === 'seller') && deliveryId && !otpVerified && (
+                    <OtpVerification
+                      orderId={order.id}
+                      deliveryId={deliveryId}
+                      onVerified={() => {
+                        setOtpVerified(true);
+                        updateStatus('delivered');
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>
