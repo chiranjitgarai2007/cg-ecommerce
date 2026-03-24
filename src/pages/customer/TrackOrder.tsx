@@ -142,6 +142,11 @@ export default function TrackOrder() {
         {/* Delivery Boy & Live Location */}
         <DeliveryLocationCard deliveryBoy={deliveryBoy} delivery={delivery} orderStatus={order.status} />
 
+        {/* OTP for delivery verification */}
+        {['on_the_way', 'picked_up'].includes(order.status) && orderId && (
+          <OtpDisplay orderId={orderId} />
+        )}
+
         {/* Delivery Address */}
         <div className="bg-card border border-border rounded-lg p-4">
           <h3 className="font-heading font-semibold text-foreground text-sm mb-2">ডেলিভারি ঠিকানা</h3>
