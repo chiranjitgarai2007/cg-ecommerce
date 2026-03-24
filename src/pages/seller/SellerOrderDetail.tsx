@@ -65,6 +65,8 @@ export default function SellerOrderDetail() {
   const [statusLogs, setStatusLogs] = useState<StatusLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [deliveryId, setDeliveryId] = useState<string | null>(null);
+  const [otpVerified, setOtpVerified] = useState(false);
 
   useEffect(() => {
     if (user && orderId) fetchOrder();
