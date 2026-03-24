@@ -10,7 +10,11 @@ export interface EnrichedDelivery extends Delivery {
     landmark: string | null;
     total_amount: number;
     customer_name?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   seller_address?: string;
+  seller_latitude?: number | null;
+  seller_longitude?: number | null;
   products?: { name: string; quantity: number }[];
 }

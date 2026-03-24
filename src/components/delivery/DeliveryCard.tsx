@@ -1,4 +1,4 @@
-import { CheckCircle, MapPin, Phone, XCircle } from 'lucide-react';
+import { CheckCircle, MapPin, Navigation, Phone, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EnrichedDelivery, DeliveryStatus } from '@/types/delivery';
@@ -24,6 +24,23 @@ interface DeliveryCardProps {
 }
 
 export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: DeliveryCardProps) {
+  const customerLat = d.order?.latitude;
+  const customerLng = d.order?.longitude;
+  const hasCustomerLocation = customerLat && customerLng;
+
+  const sellerLat = d.seller_latitude;
+  const sellerLng = d.seller_longitude;
+  const hasSellerLocation = sellerLat && sellerLng;
+
+  // Build Google Maps directions URL
+  const getNavigationUrl = (lat: number, lng: number) => {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  };
+
+  // Show pickup navigation for accepted status, delivery navigation for picked_up/on_the_way
+  const showPickupNav = ['assigned', 'accepted'].includes(d.status);
+  const showDeliveryNav = ['picked_up', 'on_the_way'].includes(d.status);
+
   return (
     <div className="bg-card border border-border rounded-lg p-5 space-y-3">
       <div className="flex justify-between items-start">
@@ -31,7 +48,9 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
           <p className="font-medium text-foreground">Order #{d.order_id.slice(0, 8)}</p>
           <Badge variant="outline" className="mt-1 capitalize">{d.status.replace('_', ' ')}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleString()}</p>
+        {d.order && (
+          <p className="text-sm font-semibold text-primary">₹{d.order.total_amount.toLocaleString()}</p>
+        )}
       </div>
 
       {d.products && d.products.length > 0 && (
@@ -44,23 +63,86 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
       )}
 
       <div className="space-y-2 text-sm">
+        {/* Pickup Location */}
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs text-muted-foreground">Pickup</p>
             <p className="text-foreground">{d.seller_address}</p>
           </div>
+          {showPickupNav && hasSellerLocation && (
+            <a href={getNavigationUrl(sellerLat, sellerLng)} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-7">
+                <Navigation className="w-3 h-3" /> Navigate
+              </Button>
+            </a>
+          )}
         </div>
+
+        {/* Delivery Location */}
         {d.order && (
           <>
             <div className="flex items-start gap-2">
               <MapPin className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-muted-foreground">Delivery to {d.order.customer_name}</p>
                 <p className="text-foreground">{d.order.shipping_address}</p>
                 {d.order.landmark && <p className="text-xs text-muted-foreground">Landmark: {d.order.landmark}</p>}
               </div>
+              {showDeliveryNav && hasCustomerLocation && (
+                <a href={getNavigationUrl(customerLat, customerLng)} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="gap-1 text-xs h-7">
+                    <Navigation className="w-3 h-3" /> Navigate
+                  </Button>
+                </a>
+              )}
             </div>
+
+            {/* Full navigation card when actively delivering */}
+            {showDeliveryNav && hasCustomerLocation && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  </span>
+                  <span className="text-xs font-medium text-foreground">Customer Location Available</span>
+                </div>
+                <a
+                  href={getNavigationUrl(customerLat, customerLng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Button size="sm" className="w-full gap-2">
+                    <Navigation className="w-4 h-4" />
+                    Open in Google Maps
+                  </Button>
+                </a>
+              </div>
+            )}
+
+            {/* Show navigate to pickup when accepted */}
+            {showPickupNav && hasSellerLocation && (
+              <div className="bg-accent/30 border border-accent rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-medium text-foreground">Navigate to Pickup Location</span>
+                </div>
+                <a
+                  href={getNavigationUrl(sellerLat, sellerLng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Button size="sm" variant="outline" className="w-full gap-2">
+                    <Navigation className="w-4 h-4" />
+                    Open Pickup in Maps
+                  </Button>
+                </a>
+              </div>
+            )}
+
             {d.order.contact_number && (
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-muted-foreground" />

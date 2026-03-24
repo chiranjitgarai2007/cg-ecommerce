@@ -52,7 +52,7 @@ export default function DeliveryDashboard() {
 
     const orderIds = data.map(d => d.order_id);
     const [ordersRes, orderItemsRes] = await Promise.all([
-      supabase.from('orders').select('id, shipping_address, contact_number, landmark, total_amount, customer_id').in('id', orderIds),
+      supabase.from('orders').select('id, shipping_address, contact_number, landmark, total_amount, customer_id, latitude, longitude').in('id', orderIds),
       supabase.from('order_items').select('order_id, quantity, product_id').in('order_id', orderIds),
     ]);
 
@@ -68,6 +68,10 @@ export default function DeliveryDashboard() {
     const { data: sellerProfiles } = await supabase.from('profiles').select('user_id, business_address, store_name').in('user_id', sellerIds);
     const sellerMap = new Map((sellerProfiles || []).map(s => [s.user_id, s]));
 
+    // Get seller addresses (lat/lng) if available
+    const { data: sellerAddresses } = await supabase.from('addresses').select('user_id, latitude, longitude').in('user_id', sellerIds).eq('is_default', true);
+    const sellerAddrMap = new Map((sellerAddresses || []).map(a => [a.user_id, a]));
+
     const enriched: EnrichedDelivery[] = data.map(d => {
       const order = (ordersRes.data || []).find(o => o.id === d.order_id);
       const items = (orderItemsRes.data || []).filter(oi => oi.order_id === d.order_id);
@@ -77,6 +81,7 @@ export default function DeliveryDashboard() {
       });
       const firstProd = items[0]?.product_id ? prodMap.get(items[0].product_id) : null;
       const seller = firstProd ? sellerMap.get(firstProd.seller_id) : null;
+      const sellerAddr = firstProd ? sellerAddrMap.get(firstProd.seller_id) : null;
 
       return {
         ...d,
@@ -86,8 +91,12 @@ export default function DeliveryDashboard() {
           landmark: order.landmark,
           total_amount: Number(order.total_amount),
           customer_name: profileMap.get(order.customer_id) || 'Customer',
+          latitude: order.latitude,
+          longitude: order.longitude,
         } : undefined,
         seller_address: seller?.business_address || seller?.store_name || 'Seller location',
+        seller_latitude: sellerAddr?.latitude || null,
+        seller_longitude: sellerAddr?.longitude || null,
         products: prodDetails,
       };
     });
