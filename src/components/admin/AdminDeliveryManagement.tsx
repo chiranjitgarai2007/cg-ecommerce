@@ -52,21 +52,31 @@ export default function AdminDeliveryManagement() {
 
     const orderIds = allOrders.map(o => o.id);
 
-    // Get existing deliveries and customer names
+    // Get existing deliveries, customer names, and OTP status
     const [deliveriesRes, customerIds] = await Promise.all([
       supabase.from('deliveries').select('*').in('order_id', orderIds),
       Promise.resolve([...new Set(allOrders.map(o => o.customer_id))]),
     ]);
 
-    const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', customerIds);
-    const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
-    const deliveryMap = new Map((deliveriesRes.data || []).map(d => [d.order_id, d]));
+    const [profilesRes, otpRes] = await Promise.all([
+      supabase.from('profiles').select('user_id, full_name').in('user_id', customerIds),
+      supabase.from('delivery_otps').select('order_id, is_verified, verified_at').in('order_id', orderIds),
+    ]);
 
-    const enriched: EnrichedOrder[] = allOrders.map(o => ({
-      ...o,
-      delivery: deliveryMap.get(o.id) || null,
-      customer_name: profileMap.get(o.customer_id) || 'Customer',
-    }));
+    const profileMap = new Map((profilesRes.data || []).map(p => [p.user_id, p.full_name]));
+    const deliveryMap = new Map((deliveriesRes.data || []).map(d => [d.order_id, d]));
+    const otpMap = new Map((otpRes.data || []).map(o => [o.order_id, o]));
+
+    const enriched: EnrichedOrder[] = allOrders.map(o => {
+      const otpData = otpMap.get(o.id);
+      return {
+        ...o,
+        delivery: deliveryMap.get(o.id) || null,
+        customer_name: profileMap.get(o.customer_id) || 'Customer',
+        otp_verified: otpData?.is_verified || false,
+        otp_verified_at: otpData?.verified_at || null,
+      };
+    });
 
     setOrders(enriched);
     await fetchDeliveryBoys();
