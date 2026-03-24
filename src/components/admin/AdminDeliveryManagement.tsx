@@ -235,7 +235,18 @@ export default function AdminDeliveryManagement() {
                   <p className="text-sm font-medium text-foreground">Order #{o.id.slice(0, 8)}</p>
                   <p className="text-xs text-muted-foreground">{o.customer_name} · ₹{o.total_amount}</p>
                 </div>
-                <Badge className="capitalize">{o.delivery?.status?.replace('_', ' ') || 'assigned'}</Badge>
+                <div className="flex items-center gap-2">
+                  {o.otp_verified ? (
+                    <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10">
+                      <CheckCircle className="w-3 h-3" /> OTP Verified
+                    </Badge>
+                  ) : o.delivery?.status === 'on_the_way' ? (
+                    <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-300 bg-yellow-50">
+                      <Shield className="w-3 h-3" /> OTP Pending
+                    </Badge>
+                  ) : null}
+                  <Badge className="capitalize">{o.delivery?.status?.replace('_', ' ') || 'assigned'}</Badge>
+                </div>
               </div>
             ))}
           </div>
