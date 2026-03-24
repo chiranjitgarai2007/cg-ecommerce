@@ -81,6 +81,7 @@ export default function DeliveryDashboard() {
       });
       const firstProd = items[0]?.product_id ? prodMap.get(items[0].product_id) : null;
       const seller = firstProd ? sellerMap.get(firstProd.seller_id) : null;
+      const sellerAddr = firstProd ? sellerAddrMap.get(firstProd.seller_id) : null;
 
       return {
         ...d,
@@ -90,8 +91,12 @@ export default function DeliveryDashboard() {
           landmark: order.landmark,
           total_amount: Number(order.total_amount),
           customer_name: profileMap.get(order.customer_id) || 'Customer',
+          latitude: order.latitude,
+          longitude: order.longitude,
         } : undefined,
         seller_address: seller?.business_address || seller?.store_name || 'Seller location',
+        seller_latitude: sellerAddr?.latitude || null,
+        seller_longitude: sellerAddr?.longitude || null,
         products: prodDetails,
       };
     });
