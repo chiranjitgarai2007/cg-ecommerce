@@ -192,6 +192,73 @@ export default function SellerOrders() {
     setLoading(false);
   };
 
+  const autoAssignDeliveryBoy = async (orderId: string) => {
+    // Get all delivery boys
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'delivery_boy');
+    if (!roles?.length) {
+      toast.info('No delivery partners available. Admin will assign manually.');
+      return;
+    }
+
+    const boyIds = roles.map(r => r.user_id);
+
+    // Get approved, non-blocked delivery boys
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, is_blocked, is_approved')
+      .in('user_id', boyIds);
+
+    const activeBoys = (profiles || []).filter(p => !p.is_blocked && p.is_approved !== false);
+    if (!activeBoys.length) {
+      toast.info('No available delivery partners. Admin will assign manually.');
+      return;
+    }
+
+    // Count active deliveries per boy
+    const { data: activeDeliveries } = await supabase
+      .from('deliveries')
+      .select('delivery_boy_id')
+      .in('delivery_boy_id', activeBoys.map(b => b.user_id))
+      .in('status', ['assigned', 'accepted', 'picked_up', 'on_the_way']);
+
+    const countMap = new Map<string, number>();
+    activeBoys.forEach(b => countMap.set(b.user_id, 0));
+    (activeDeliveries || []).forEach(d => {
+      if (d.delivery_boy_id) countMap.set(d.delivery_boy_id, (countMap.get(d.delivery_boy_id) || 0) + 1);
+    });
+
+    // Pick the one with least active deliveries
+    const sorted = activeBoys.sort((a, b) => (countMap.get(a.user_id) || 0) - (countMap.get(b.user_id) || 0));
+    const bestBoy = sorted[0];
+
+    // Create delivery record
+    const { error: delError } = await supabase.from('deliveries').insert({
+      order_id: orderId,
+      delivery_boy_id: bestBoy.user_id,
+      status: 'assigned',
+    });
+
+    if (delError) {
+      console.error('Auto-assign failed:', delError.message);
+      toast.info('Could not auto-assign. Admin will assign manually.');
+      return;
+    }
+
+    // Notify the assigned delivery boy
+    await supabase.from('notifications').insert({
+      user_id: bestBoy.user_id,
+      title: 'New Delivery Assigned',
+      message: `Order #${orderId.slice(0, 8)} has been assigned to you.`,
+      type: 'delivery_assigned',
+      related_order_id: orderId,
+    });
+
+    toast.success(`Auto-assigned to ${bestBoy.full_name || 'delivery partner'}`);
+  };
+
   const acceptOrder = async (orderId: string) => {
     setUpdatingId(orderId);
     const useDeliveryBoy = needsDeliveryBoy[orderId] ?? false;
@@ -201,8 +268,15 @@ export default function SellerOrders() {
       delivery_type: useDeliveryBoy ? 'delivery_boy' : 'seller',
     }).eq('id', orderId);
 
-    if (error) toast.error(error.message);
-    else { toast.success('Order accepted!'); fetchOrders(); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Order accepted!');
+      if (useDeliveryBoy) {
+        await autoAssignDeliveryBoy(orderId);
+      }
+      fetchOrders();
+    }
     setUpdatingId(null);
   };
 
