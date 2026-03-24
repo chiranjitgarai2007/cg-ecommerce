@@ -21,6 +21,8 @@ interface DeliveryBoy {
 interface EnrichedOrder extends Order {
   delivery?: Delivery | null;
   customer_name?: string;
+  otp_verified?: boolean;
+  otp_verified_at?: string | null;
 }
 
 export default function AdminDeliveryManagement() {
