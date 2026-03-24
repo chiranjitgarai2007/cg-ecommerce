@@ -127,6 +127,29 @@ export default function DeliveryDashboard() {
         if (mappedStatus) {
           await supabase.from('orders').update({ status: mappedStatus }).eq('id', delivery.order_id);
         }
+
+        // Generate OTP when status changes to on_the_way
+        if (next === 'on_the_way') {
+          const { data: otpResult, error: otpError } = await supabase.rpc('generate_delivery_otp', {
+            _order_id: delivery.order_id,
+            _delivery_id: delivery.id,
+          });
+          if (otpError) {
+            console.error('OTP generation failed:', otpError.message);
+          } else {
+            // Notify customer about OTP
+            const order = (await supabase.from('orders').select('customer_id').eq('id', delivery.order_id).single()).data;
+            if (order) {
+              await supabase.from('notifications').insert({
+                user_id: order.customer_id,
+                title: 'Delivery OTP',
+                message: `Your delivery OTP is: ${otpResult}. Share it with the delivery person to confirm delivery.`,
+                type: 'delivery_otp',
+                related_order_id: delivery.order_id,
+              });
+            }
+          }
+        }
       }
       fetchDeliveries();
     }

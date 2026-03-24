@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 import type { OrderWithItems } from './SellerOrders';
+import OtpVerification from '@/components/delivery/OtpVerification';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 
@@ -64,6 +65,8 @@ export default function SellerOrderDetail() {
   const [statusLogs, setStatusLogs] = useState<StatusLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [deliveryId, setDeliveryId] = useState<string | null>(null);
+  const [otpVerified, setOtpVerified] = useState(false);
 
   useEffect(() => {
     if (user && orderId) fetchOrder();
@@ -101,7 +104,7 @@ export default function SellerOrderDetail() {
     const [productsRes, profileRes, deliveryRes, logsRes] = await Promise.all([
       supabase.from('products').select('id, name, image_url, meal_type').in('id', productIds),
       supabase.from('profiles').select('user_id, full_name, email, phone').eq('user_id', orderData.customer_id).single(),
-      supabase.from('deliveries').select('delivery_boy_id, status').eq('order_id', orderId).maybeSingle(),
+      supabase.from('deliveries').select('id, delivery_boy_id, status').eq('order_id', orderId).maybeSingle(),
       supabase.from('order_status_log').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
     ]);
 
@@ -132,6 +135,10 @@ export default function SellerOrderDetail() {
       deliveryBoyPhone = dbProfile?.phone || undefined;
     }
 
+    if (deliveryRes.data?.id) {
+      setDeliveryId(deliveryRes.data.id);
+    }
+
     setOrder({
       ...orderData,
       total_amount: Number(orderData.total_amount),
@@ -152,8 +159,40 @@ export default function SellerOrderDetail() {
     if (!order) return;
     setUpdatingStatus(newStatus);
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
-    if (error) toast.error(error.message);
-    else { toast.success(`Order ${statusLabels[newStatus]}`); fetchOrder(); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      // Generate OTP when seller self-delivers and moves to on_the_way
+      if (newStatus === 'on_the_way' && (order.seller_delivers || order.delivery_type === 'seller')) {
+        let delId = deliveryId;
+        if (!delId) {
+          const { data: newDel } = await supabase
+            .from('deliveries')
+            .insert({ order_id: order.id, delivery_boy_id: user!.id, status: 'on_the_way' })
+            .select('id')
+            .single();
+          delId = newDel?.id || null;
+          if (delId) setDeliveryId(delId);
+        }
+        if (delId) {
+          const { data: otpResult } = await supabase.rpc('generate_delivery_otp', {
+            _order_id: order.id,
+            _delivery_id: delId,
+          });
+          if (otpResult) {
+            await supabase.from('notifications').insert({
+              user_id: order.customer_id,
+              title: 'Delivery OTP',
+              message: `Your delivery OTP is: ${otpResult}. Share it with the delivery person to confirm delivery.`,
+              type: 'delivery_otp',
+              related_order_id: order.id,
+            });
+          }
+        }
+      }
+      toast.success(`Order ${statusLabels[newStatus]}`);
+      fetchOrder();
+    }
     setUpdatingStatus(null);
   };
 
@@ -240,40 +279,55 @@ export default function SellerOrderDetail() {
               {order.status === 'cancelled' || order.status === 'delivered' ? (
                 <p className="text-sm text-muted-foreground">This order is {statusLabels[order.status].toLowerCase()}.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {statusFlow.map((status, idx) => {
-                    const isActive = order.status === status;
-                    const isPast = idx < currentStatusIndex;
-                    const isNext = idx === currentStatusIndex + 1;
-                    // For seller-delivered orders, allow all steps. For delivery_boy, skip picked_up/on_the_way/delivered
-                    const isSellerDelivery = order.delivery_type === 'seller' || order.seller_delivers;
-                    const isDeliveryStep = ['picked_up', 'on_the_way', 'delivered'].includes(status);
-                    const canClick = isNext && (!isDeliveryStep || isSellerDelivery || status === 'delivered');
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {statusFlow.map((status, idx) => {
+                      const isActive = order.status === status;
+                      const isPast = idx < currentStatusIndex;
+                      const isNext = idx === currentStatusIndex + 1;
+                      const isSellerDelivery = order.delivery_type === 'seller' || order.seller_delivers;
+                      const isDeliveryStep = ['picked_up', 'on_the_way', 'delivered'].includes(status);
+                      // Block "delivered" button - OTP verification handles it
+                      const needsOtp = status === 'delivered' && order.status === 'on_the_way' && isSellerDelivery;
+                      const canClick = isNext && (!isDeliveryStep || isSellerDelivery) && !needsOtp;
 
-                    return (
-                      <Button
-                        key={status}
-                        variant={isActive ? 'default' : isPast ? 'secondary' : 'outline'}
-                        size="sm"
-                        disabled={!canClick || !!updatingStatus}
-                        onClick={() => canClick && updateStatus(status)}
-                        className={`${isActive ? '' : isPast ? 'opacity-60' : ''}`}
-                      >
-                        {updatingStatus === status ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                        {isPast && <CheckCircle className="w-3 h-3 mr-1" />}
-                        {statusLabels[status]}
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={!!updatingStatus}
-                    onClick={() => updateStatus('cancelled')}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" />
-                    Cancel Order
-                  </Button>
+                      return (
+                        <Button
+                          key={status}
+                          variant={isActive ? 'default' : isPast ? 'secondary' : 'outline'}
+                          size="sm"
+                          disabled={!canClick || !!updatingStatus}
+                          onClick={() => canClick && updateStatus(status)}
+                          className={`${isActive ? '' : isPast ? 'opacity-60' : ''}`}
+                        >
+                          {updatingStatus === status ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                          {isPast && <CheckCircle className="w-3 h-3 mr-1" />}
+                          {statusLabels[status]}
+                        </Button>
+                      );
+                    })}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={!!updatingStatus}
+                      onClick={() => updateStatus('cancelled')}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Cancel Order
+                    </Button>
+                  </div>
+
+                  {/* OTP Verification for seller self-delivery */}
+                  {order.status === 'on_the_way' && (order.seller_delivers || order.delivery_type === 'seller') && deliveryId && !otpVerified && (
+                    <OtpVerification
+                      orderId={order.id}
+                      deliveryId={deliveryId}
+                      onVerified={() => {
+                        setOtpVerified(true);
+                        updateStatus('delivered');
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>

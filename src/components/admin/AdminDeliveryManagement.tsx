@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, UserCheck, Package, MapPin } from 'lucide-react';
+import { Truck, UserCheck, Package, MapPin, Shield, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +21,8 @@ interface DeliveryBoy {
 interface EnrichedOrder extends Order {
   delivery?: Delivery | null;
   customer_name?: string;
+  otp_verified?: boolean;
+  otp_verified_at?: string | null;
 }
 
 export default function AdminDeliveryManagement() {
@@ -50,21 +52,31 @@ export default function AdminDeliveryManagement() {
 
     const orderIds = allOrders.map(o => o.id);
 
-    // Get existing deliveries and customer names
+    // Get existing deliveries, customer names, and OTP status
     const [deliveriesRes, customerIds] = await Promise.all([
       supabase.from('deliveries').select('*').in('order_id', orderIds),
       Promise.resolve([...new Set(allOrders.map(o => o.customer_id))]),
     ]);
 
-    const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', customerIds);
-    const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
-    const deliveryMap = new Map((deliveriesRes.data || []).map(d => [d.order_id, d]));
+    const [profilesRes, otpRes] = await Promise.all([
+      supabase.from('profiles').select('user_id, full_name').in('user_id', customerIds),
+      supabase.from('delivery_otps').select('order_id, is_verified, verified_at').in('order_id', orderIds),
+    ]);
 
-    const enriched: EnrichedOrder[] = allOrders.map(o => ({
-      ...o,
-      delivery: deliveryMap.get(o.id) || null,
-      customer_name: profileMap.get(o.customer_id) || 'Customer',
-    }));
+    const profileMap = new Map((profilesRes.data || []).map(p => [p.user_id, p.full_name]));
+    const deliveryMap = new Map((deliveriesRes.data || []).map(d => [d.order_id, d]));
+    const otpMap = new Map((otpRes.data || []).map(o => [o.order_id, o]));
+
+    const enriched: EnrichedOrder[] = allOrders.map(o => {
+      const otpData = otpMap.get(o.id);
+      return {
+        ...o,
+        delivery: deliveryMap.get(o.id) || null,
+        customer_name: profileMap.get(o.customer_id) || 'Customer',
+        otp_verified: otpData?.is_verified || false,
+        otp_verified_at: otpData?.verified_at || null,
+      };
+    });
 
     setOrders(enriched);
     await fetchDeliveryBoys();
@@ -223,7 +235,18 @@ export default function AdminDeliveryManagement() {
                   <p className="text-sm font-medium text-foreground">Order #{o.id.slice(0, 8)}</p>
                   <p className="text-xs text-muted-foreground">{o.customer_name} · ₹{o.total_amount}</p>
                 </div>
-                <Badge className="capitalize">{o.delivery?.status?.replace('_', ' ') || 'assigned'}</Badge>
+                <div className="flex items-center gap-2">
+                  {o.otp_verified ? (
+                    <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10">
+                      <CheckCircle className="w-3 h-3" /> OTP Verified
+                    </Badge>
+                  ) : o.delivery?.status === 'on_the_way' ? (
+                    <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-300 bg-yellow-50">
+                      <Shield className="w-3 h-3" /> OTP Pending
+                    </Badge>
+                  ) : null}
+                  <Badge className="capitalize">{o.delivery?.status?.replace('_', ' ') || 'assigned'}</Badge>
+                </div>
               </div>
             ))}
           </div>

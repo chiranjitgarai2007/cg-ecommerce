@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import TrackingTimeline, { TRACKING_STEPS, type StatusLog } from '@/components/tracking/TrackingTimeline';
 import DeliveryLocationCard from '@/components/tracking/DeliveryLocationCard';
+import OtpDisplay from '@/components/delivery/OtpDisplay';
 
 export default function TrackOrder() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -140,6 +141,11 @@ export default function TrackOrder() {
 
         {/* Delivery Boy & Live Location */}
         <DeliveryLocationCard deliveryBoy={deliveryBoy} delivery={delivery} orderStatus={order.status} />
+
+        {/* OTP for delivery verification */}
+        {['on_the_way', 'picked_up'].includes(order.status) && orderId && (
+          <OtpDisplay orderId={orderId} />
+        )}
 
         {/* Delivery Address */}
         <div className="bg-card border border-border rounded-lg p-4">

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { CheckCircle, MapPin, Navigation, Phone, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EnrichedDelivery, DeliveryStatus } from '@/types/delivery';
+import OtpVerification from './OtpVerification';
 
 const statusFlow: Record<string, DeliveryStatus> = {
   assigned: 'accepted',
@@ -24,6 +26,7 @@ interface DeliveryCardProps {
 }
 
 export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: DeliveryCardProps) {
+  const [otpVerified, setOtpVerified] = useState(false);
   const customerLat = d.order?.latitude;
   const customerLng = d.order?.longitude;
   const hasCustomerLocation = customerLat && customerLng;
@@ -32,14 +35,20 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
   const sellerLng = d.seller_longitude;
   const hasSellerLocation = sellerLat && sellerLng;
 
-  // Build Google Maps directions URL
   const getNavigationUrl = (lat: number, lng: number) => {
     return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
   };
 
-  // Show pickup navigation for accepted status, delivery navigation for picked_up/on_the_way
   const showPickupNav = ['assigned', 'accepted'].includes(d.status);
   const showDeliveryNav = ['picked_up', 'on_the_way'].includes(d.status);
+
+  // For "on_the_way" status, require OTP before allowing "Mark Delivered"
+  const needsOtpForDelivery = d.status === 'on_the_way';
+
+  const handleOtpVerified = () => {
+    setOtpVerified(true);
+    onUpdateStatus(d.id, d.status);
+  };
 
   return (
     <div className="bg-card border border-border rounded-lg p-5 space-y-3">
@@ -63,7 +72,6 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
       )}
 
       <div className="space-y-2 text-sm">
-        {/* Pickup Location */}
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
           <div className="flex-1">
@@ -79,7 +87,6 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
           )}
         </div>
 
-        {/* Delivery Location */}
         {d.order && (
           <>
             <div className="flex items-start gap-2">
@@ -98,7 +105,6 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
               )}
             </div>
 
-            {/* Full navigation card when actively delivering */}
             {showDeliveryNav && hasCustomerLocation && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -108,36 +114,23 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
                   </span>
                   <span className="text-xs font-medium text-foreground">Customer Location Available</span>
                 </div>
-                <a
-                  href={getNavigationUrl(customerLat, customerLng)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
+                <a href={getNavigationUrl(customerLat, customerLng)} target="_blank" rel="noopener noreferrer" className="block">
                   <Button size="sm" className="w-full gap-2">
-                    <Navigation className="w-4 h-4" />
-                    Open in Google Maps
+                    <Navigation className="w-4 h-4" /> Open in Google Maps
                   </Button>
                 </a>
               </div>
             )}
 
-            {/* Show navigate to pickup when accepted */}
             {showPickupNav && hasSellerLocation && (
               <div className="bg-accent/30 border border-accent rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-primary" />
                   <span className="text-xs font-medium text-foreground">Navigate to Pickup Location</span>
                 </div>
-                <a
-                  href={getNavigationUrl(sellerLat, sellerLng)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
+                <a href={getNavigationUrl(sellerLat, sellerLng)} target="_blank" rel="noopener noreferrer" className="block">
                   <Button size="sm" variant="outline" className="w-full gap-2">
-                    <Navigation className="w-4 h-4" />
-                    Open Pickup in Maps
+                    <Navigation className="w-4 h-4" /> Open Pickup in Maps
                   </Button>
                 </a>
               </div>
@@ -153,8 +146,17 @@ export default function DeliveryCard({ delivery: d, onUpdateStatus, onReject }: 
         )}
       </div>
 
+      {/* OTP Verification for delivery completion */}
+      {needsOtpForDelivery && !otpVerified && (
+        <OtpVerification
+          orderId={d.order_id}
+          deliveryId={d.id}
+          onVerified={handleOtpVerified}
+        />
+      )}
+
       <div className="flex gap-2 pt-2">
-        {statusFlow[d.status] && (
+        {statusFlow[d.status] && !needsOtpForDelivery && (
           <Button size="sm" onClick={() => onUpdateStatus(d.id, d.status)}>
             <CheckCircle className="w-3 h-3 mr-1" /> {statusLabels[d.status]}
           </Button>
