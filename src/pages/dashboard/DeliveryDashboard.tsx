@@ -52,7 +52,7 @@ export default function DeliveryDashboard() {
 
     const orderIds = data.map(d => d.order_id);
     const [ordersRes, orderItemsRes] = await Promise.all([
-      supabase.from('orders').select('id, shipping_address, contact_number, landmark, total_amount, customer_id').in('id', orderIds),
+      supabase.from('orders').select('id, shipping_address, contact_number, landmark, total_amount, customer_id, latitude, longitude').in('id', orderIds),
       supabase.from('order_items').select('order_id, quantity, product_id').in('order_id', orderIds),
     ]);
 
