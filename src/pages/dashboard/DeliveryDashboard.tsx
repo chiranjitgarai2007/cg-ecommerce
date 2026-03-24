@@ -68,6 +68,10 @@ export default function DeliveryDashboard() {
     const { data: sellerProfiles } = await supabase.from('profiles').select('user_id, business_address, store_name').in('user_id', sellerIds);
     const sellerMap = new Map((sellerProfiles || []).map(s => [s.user_id, s]));
 
+    // Get seller addresses (lat/lng) if available
+    const { data: sellerAddresses } = await supabase.from('addresses').select('user_id, latitude, longitude').in('user_id', sellerIds).eq('is_default', true);
+    const sellerAddrMap = new Map((sellerAddresses || []).map(a => [a.user_id, a]));
+
     const enriched: EnrichedDelivery[] = data.map(d => {
       const order = (ordersRes.data || []).find(o => o.id === d.order_id);
       const items = (orderItemsRes.data || []).filter(oi => oi.order_id === d.order_id);
