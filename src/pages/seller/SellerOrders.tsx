@@ -323,11 +323,56 @@ export default function SellerOrders() {
     await supabase.from('notifications').insert(notifications);
   };
 
+  const generateOtpForOrder = async (orderId: string) => {
+    // Find or create delivery record for seller self-delivery
+    const { data: existingDelivery } = await supabase
+      .from('deliveries')
+      .select('id')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    let deliveryId = existingDelivery?.id;
+    if (!deliveryId) {
+      const { data: newDelivery } = await supabase
+        .from('deliveries')
+        .insert({ order_id: orderId, delivery_boy_id: user!.id, status: 'on_the_way' })
+        .select('id')
+        .single();
+      deliveryId = newDelivery?.id;
+    }
+
+    if (deliveryId) {
+      const { data: otpResult } = await supabase.rpc('generate_delivery_otp', {
+        _order_id: orderId,
+        _delivery_id: deliveryId,
+      });
+
+      // Notify customer
+      const order = orders.find(o => o.id === orderId);
+      if (order && otpResult) {
+        await supabase.from('notifications').insert({
+          user_id: order.customer_id,
+          title: 'Delivery OTP',
+          message: `Your delivery OTP is: ${otpResult}. Share it with the delivery person to confirm delivery.`,
+          type: 'delivery_otp',
+          related_order_id: orderId,
+        });
+      }
+    }
+  };
+
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     setUpdatingId(orderId);
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     if (error) toast.error(error.message);
-    else { toast.success(`Order ${statusLabels[newStatus] || newStatus}`); fetchOrders(); }
+    else {
+      // Generate OTP when order goes to on_the_way (seller self-delivery)
+      if (newStatus === 'on_the_way') {
+        await generateOtpForOrder(orderId);
+      }
+      toast.success(`Order ${statusLabels[newStatus] || newStatus}`);
+      fetchOrders();
+    }
     setUpdatingId(null);
   };
 

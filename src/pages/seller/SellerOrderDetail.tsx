@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 import type { OrderWithItems } from './SellerOrders';
+import OtpVerification from '@/components/delivery/OtpVerification';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 
