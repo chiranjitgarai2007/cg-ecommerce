@@ -104,7 +104,7 @@ export default function SellerOrderDetail() {
     const [productsRes, profileRes, deliveryRes, logsRes] = await Promise.all([
       supabase.from('products').select('id, name, image_url, meal_type').in('id', productIds),
       supabase.from('profiles').select('user_id, full_name, email, phone').eq('user_id', orderData.customer_id).single(),
-      supabase.from('deliveries').select('delivery_boy_id, status').eq('order_id', orderId).maybeSingle(),
+      supabase.from('deliveries').select('id, delivery_boy_id, status').eq('order_id', orderId).maybeSingle(),
       supabase.from('order_status_log').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
     ]);
 
@@ -135,6 +135,10 @@ export default function SellerOrderDetail() {
       deliveryBoyPhone = dbProfile?.phone || undefined;
     }
 
+    if (deliveryRes.data?.id) {
+      setDeliveryId(deliveryRes.data.id);
+    }
+
     setOrder({
       ...orderData,
       total_amount: Number(orderData.total_amount),
@@ -155,8 +159,40 @@ export default function SellerOrderDetail() {
     if (!order) return;
     setUpdatingStatus(newStatus);
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
-    if (error) toast.error(error.message);
-    else { toast.success(`Order ${statusLabels[newStatus]}`); fetchOrder(); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      // Generate OTP when seller self-delivers and moves to on_the_way
+      if (newStatus === 'on_the_way' && (order.seller_delivers || order.delivery_type === 'seller')) {
+        let delId = deliveryId;
+        if (!delId) {
+          const { data: newDel } = await supabase
+            .from('deliveries')
+            .insert({ order_id: order.id, delivery_boy_id: user!.id, status: 'on_the_way' })
+            .select('id')
+            .single();
+          delId = newDel?.id || null;
+          if (delId) setDeliveryId(delId);
+        }
+        if (delId) {
+          const { data: otpResult } = await supabase.rpc('generate_delivery_otp', {
+            _order_id: order.id,
+            _delivery_id: delId,
+          });
+          if (otpResult) {
+            await supabase.from('notifications').insert({
+              user_id: order.customer_id,
+              title: 'Delivery OTP',
+              message: `Your delivery OTP is: ${otpResult}. Share it with the delivery person to confirm delivery.`,
+              type: 'delivery_otp',
+              related_order_id: order.id,
+            });
+          }
+        }
+      }
+      toast.success(`Order ${statusLabels[newStatus]}`);
+      fetchOrder();
+    }
     setUpdatingStatus(null);
   };
 
